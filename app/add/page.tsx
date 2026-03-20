@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Save, FileText, CalendarDays, LayoutTemplate, Wallet, Bot, Loader2, Camera } from "lucide-react";
+import { ArrowRight, Save, FileText, CalendarDays, LayoutTemplate, Wallet, Bot, Loader2, Camera, Clock, ListTodo, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -21,7 +21,21 @@ export default function AddExpense() {
 
   const [smartText, setSmartText] = useState("");
   const [isSmartParsing, setIsSmartParsing] = useState(false);
+  const [backupToDrive, setBackupToDrive] = useState(true);
+  const [remindInCalendar, setRemindInCalendar] = useState(false);
+  const [addTaskToGoogle, setAddTaskToGoogle] = useState(false);
+  const [contacts, setContacts] = useState<{name: string}[]>([]);
+  const [showContacts, setShowContacts] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/contacts/list")
+      .then(r => r.json())
+      .then(data => {
+        if(data.success) setContacts(data.contacts);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,6 +74,32 @@ export default function AddExpense() {
           }
 
           toast.success("הקבלה פוענחה בהצלחה!");
+          
+          if (backupToDrive) {
+            try {
+              toast.loading("מגבה קבלה ל-Google Drive...", { id: "backup" });
+              const backupRes = await fetch("/api/drive/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  imageBase64: base64data, 
+                  mimeType: file.type, 
+                  filename: file.name 
+                })
+              });
+              const backupData = await backupRes.json();
+              if (backupRes.ok) {
+                toast.success(
+                  <span>גובה לדרייב! <a href={backupData.webViewLink} target="_blank" rel="noreferrer" className="underline font-bold text-indigo-200">צפה בקובץ</a></span>, 
+                  { id: "backup" }
+                );
+              } else {
+                toast.error(backupData.message || "שגיאה בגיבוי הקבלה לענן.", { id: "backup" });
+              }
+            } catch (err) {
+              toast.error("שגיאת רשת בגיבוי הקבלה.", { id: "backup" });
+            }
+          }
         } else {
           toast.error("שגיאה בפענוח התמונה.");
         }
@@ -141,7 +181,52 @@ export default function AddExpense() {
       });
 
       if (res.ok) {
-        toast.success("התנועה נשמרה בהצלחה!");
+        toast.success("התנועה נשמרה בהצלחה!", { id: "save" });
+
+        // שלח בקשה ליצירת תזכורת ביומן אם המשתמש סימן את התיבה במידה ומדובר בהוצאה
+        if (transactionType === "expense" && remindInCalendar) {
+          toast.loading("מייצר תזכורת ביומן אישי...", { id: "calendar" });
+          fetch("/api/calendar/add", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              description: formData.description || "הוצאה ללא תיאור", 
+              amount: formData.amount, 
+              date: formData.date 
+            })
+          })
+          .then(cRes => cRes.json())
+          .then(cData => {
+            if (cData.success) {
+              toast.success(
+               <span>תזכורת נוצרה! <a href={cData.eventLink} target="_blank" rel="noreferrer" className="underline font-bold text-blue-800">צפה ביומן</a></span>, 
+               { id: "calendar" }
+             );
+            } else {
+              toast.error(cData.message || "שגיאה ביצירת יומן", { id: "calendar" });
+            }
+          }).catch(() => toast.error("שגיאת רשת מול היומן", { id: "calendar" }));
+        }
+
+        if (transactionType === "expense" && addTaskToGoogle) {
+          toast.loading("מייצר משימת תשלום ב-Google Tasks...", { id: "tasks" });
+          fetch("/api/tasks/add", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              description: formData.description || "הוצאה ללא תיאור", 
+              amount: formData.amount, 
+              date: formData.date 
+            })
+          })
+          .then(tRes => tRes.json())
+          .then(tData => {
+            if (tData.success) {
+              toast.success("משימה הוספה ל-Tasks!", { id: "tasks" });
+            } else {
+              toast.error(tData.message || "שגיאה ביצירת משימה", { id: "tasks" });
+            }
+          }).catch(() => toast.error("שגיאת רשת מול Tasks", { id: "tasks" }));
+        }
+
         router.push("/");
       } else {
         const data = await res.json();
@@ -233,12 +318,45 @@ export default function AddExpense() {
               {isSmartParsing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
               סרוק קבלה
             </button>
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 cursor-pointer mt-1 justify-center bg-violet-50 dark:bg-violet-900/10 p-2 rounded-lg border border-violet-100 dark:border-violet-800/30">
+              <input 
+                type="checkbox" 
+                checked={backupToDrive}
+                onChange={(e) => setBackupToDrive(e.target.checked)}
+                className="rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+              />
+              שמור עותק ב-Drive
+            </label>
+            {transactionType === "expense" && (
+              <>
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 cursor-pointer mt-1 justify-center bg-blue-50 dark:bg-blue-900/10 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                  <input 
+                    type="checkbox" 
+                    checked={remindInCalendar}
+                    onChange={(e) => setRemindInCalendar(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <Clock size={14} className="text-blue-600 dark:text-blue-400"/>
+                  יומן (Calendar)
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 cursor-pointer mt-1 justify-center bg-amber-50 dark:bg-amber-900/10 p-2 rounded-lg border border-amber-100 dark:border-amber-800/30">
+                  <input 
+                    type="checkbox" 
+                    checked={addTaskToGoogle}
+                    onChange={(e) => setAddTaskToGoogle(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <ListTodo size={14} className="text-amber-600 dark:text-amber-400"/>
+                  צייר משימה (Tasks)
+                </label>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Form Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800/60 p-6 md:p-8 relative overflow-hidden">
+      <div className="glass-card rounded-[2rem] p-6 md:p-8 relative overflow-hidden backdrop-blur-2xl">
         {/* Subtle Decorative Gradient */}
         <div className="absolute top-0 end-0 w-64 h-64 bg-indigo-50 dark:bg-indigo-900/10 rounded-full blur-3xl -z-10 translate-x-1/3 -translate-y-1/3" />
 

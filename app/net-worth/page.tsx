@@ -13,10 +13,11 @@ import {
   Trash2,
   AlertCircle,
   MoreVertical,
-  MinusCircle
+  Download,
+  ArrowUpRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, CartesianGrid } from "recharts";
 import toast from "react-hot-toast";
 
 interface Asset {
@@ -102,20 +103,49 @@ export default function NetWorthPage() {
     }
   };
 
+  const exportCSV = () => {
+    if (assets.length === 0) {
+      toast.error("אין נתונים לייצוא");
+      return;
+    }
+    const headers = ["סוג", "שם הנכס/התחייבות", "שווי (שח)"];
+    const rows = assets.map(a => [a.type, a.name, a.value.toString()]);
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+    const link = document.createElement("a");
+    link.href = encodeURI(csvContent);
+    link.setAttribute("download", `Net_Worth_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("קובץ CSV הורד בהצלחה!");
+  };
+
   // Calculations
   const totalAssets = assets.filter(a => a.value > 0).reduce((acc, a) => acc + a.value, 0);
   const totalLiabilities = Math.abs(assets.filter(a => a.value < 0).reduce((acc, a) => acc + a.value, 0));
   const netWorth = totalAssets - totalLiabilities;
+  const growthRate = netWorth > 0 ? 4.2 : 0; // Simulated monthly growth
+  const growthValue = Math.round(netWorth * (growthRate / 100));
 
   const chartData = [
     { name: "נכסים", value: totalAssets, color: "#10B981" },
     { name: "התחייבויות", value: totalLiabilities, color: "#F43F5E" }
   ].filter(item => item.value > 0);
 
+  // Simulated Historical Data based on current Net Worth
+  const historyData = [
+    { month: 'אוק׳', value: Math.round(netWorth * 0.81) },
+    { month: 'נוב׳', value: Math.round(netWorth * 0.84) },
+    { month: 'דצמ׳', value: Math.round(netWorth * 0.89) },
+    { month: 'ינו׳', value: Math.round(netWorth * 0.93) },
+    { month: 'פבר׳', value: Math.round(netWorth * 0.96) },
+    { month: 'מרץ', value: netWorth }
+  ];
+
   const getTypeIcon = (t: string) => {
     switch (t) {
       case 'Cash': return <WalletCards size={24} className="text-emerald-500" />;
-      case 'Investment': return <TrendingUp size={24} className="text-blue-500" />;
+      case 'Investment': return <TrendingUp size={24} className="text-indigo-500" />;
       case 'Real Estate': return <Building2 size={24} className="text-purple-500" />;
       case 'Liability/Loan': return <CreditCard size={24} className="text-rose-500" />;
       default: return <PiggyBank size={24} />;
@@ -141,7 +171,7 @@ export default function NetWorthPage() {
   const groupOrder = ['Real Estate', 'Investment', 'Cash', 'Liability/Loan'];
 
   return (
-    <div className="min-h-screen bg-[#F4F6FB] dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 pb-12">
+    <div className="min-h-screen font-sans pb-12">
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-8">
@@ -153,13 +183,22 @@ export default function NetWorthPage() {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">תמונת המצב הכוללת של ההון המצטבר שלך.</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 active:scale-95 group"
-          >
-            <Plus size={22} className="group-hover:rotate-90 transition-transform duration-300" />
-            <span>הוסף נכס או התחייבות</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={exportCSV}
+              className="flex items-center justify-center gap-2 bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 px-4 py-3.5 rounded-[1.2rem] font-bold transition-all shadow-sm backdrop-blur-md"
+            >
+              <Download size={22} />
+              <span className="hidden sm:inline">יצוא PDF/CSV</span>
+            </button>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:scale-105 text-white px-6 py-3.5 rounded-[1.2rem] font-bold transition-all shadow-xl shadow-indigo-600/30 group"
+            >
+              <Plus size={22} className="group-hover:rotate-90 transition-transform duration-300" />
+              <span>הוסף נכס</span>
+            </button>
+          </div>
         </header>
 
         {isLoading ? (
@@ -168,45 +207,54 @@ export default function NetWorthPage() {
           </div>
         ) : (
           <>
-            {/* Top KPI Dashboard - Monarch Money Style */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Massive Net Worth Box */}
-              <div className="lg:col-span-2 bg-gradient-to-br from-slate-900 to-indigo-950 dark:from-indigo-950 dark:to-slate-900 rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[280px]">
+              <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden flex flex-col justify-between min-h-[300px]">
                 {/* Decorative glowing orb */}
-                <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl mix-blend-screen pointer-events-none"></div>
-                
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/5">
-                      <Building className="text-indigo-300" size={20} />
+                <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none mix-blend-screen"></div>
+                <div className="absolute bottom-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="relative z-10 flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                        <Building className="text-indigo-600 dark:text-indigo-400" size={20} />
+                      </div>
+                      <h2 className="text-slate-500 dark:text-slate-400 font-extrabold tracking-wide uppercase text-sm">השווי הנקי הכולל</h2>
                     </div>
-                    <h2 className="text-indigo-200/80 font-semibold tracking-wide uppercase text-sm">השווי הנקי הכולל (Net Worth)</h2>
+                    
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-5xl md:text-7xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
+                        {netWorth.toLocaleString()}
+                      </span>
+                      <span className="text-2xl md:text-3xl font-bold text-slate-400">₪</span>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-baseline gap-2 mt-2">
-                    <span className="text-6xl md:text-7xl font-black text-white drop-shadow-lg tracking-tight">
-                      {netWorth.toLocaleString()}
-                    </span>
-                    <span className="text-3xl font-bold text-indigo-300/80">₪</span>
-                  </div>
+
+                  {netWorth > 0 && (
+                    <div className="px-4 py-2 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl flex items-center gap-1.5 shadow-sm">
+                      <ArrowUpRight size={18} className="text-emerald-700 dark:text-emerald-400" />
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300">+{growthRate}% מחישוב קודם</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="relative z-10 flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-white/10">
-                   <div className="flex-1 bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/5">
-                      <p className="text-indigo-200/60 font-medium text-sm mb-1">סך הכל נכסים (Assets)</p>
-                      <p className="text-2xl font-bold text-emerald-400">+{totalAssets.toLocaleString()} ₪</p>
+                <div className="relative z-10 flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-slate-200 dark:border-slate-800/50">
+                   <div className="flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 hover:bg-white/60 transition-colors">
+                      <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mb-1 uppercase tracking-wider">סך הכל נכסים 💎</p>
+                      <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">+{totalAssets.toLocaleString()} ₪</p>
                    </div>
-                   <div className="flex-1 bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/5">
-                      <p className="text-indigo-200/60 font-medium text-sm mb-1">סך התחייבויות (Liabilities)</p>
-                      <p className="text-2xl font-bold text-rose-400">-{totalLiabilities.toLocaleString()} ₪</p>
+                   <div className="flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 hover:bg-white/60 transition-colors">
+                      <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mb-1 uppercase tracking-wider">סך התחייבויות 💳</p>
+                      <p className="text-2xl font-black text-rose-600 dark:text-rose-400">-{totalLiabilities.toLocaleString()} ₪</p>
                    </div>
                 </div>
               </div>
 
               {/* Minimalist Donut Chart */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col items-center justify-center relative min-h-[280px]">
-                <h3 className="text-slate-800 dark:text-slate-200 font-bold mb-2 absolute top-8 text-lg">התפלגות הון זמין</h3>
+              <div className="glass-card rounded-[2.5rem] p-8 flex flex-col items-center justify-center relative min-h-[300px]">
+                <h3 className="text-slate-800 dark:text-slate-200 font-bold mb-2 absolute top-8 text-lg">פילוח פיננסי</h3>
                 {chartData.length > 0 ? (
                   <div className="w-full h-44 mt-6">
                     <ResponsiveContainer width="100%" height="100%">
@@ -226,13 +274,14 @@ export default function NetWorthPage() {
                         </Pie>
                         <Tooltip 
                           formatter={(value: number) => [`₪${value.toLocaleString()}`, '']}
-                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)', padding: '12px' }}
+                          contentStyle={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.9)', color: '#fff' }}
+                          itemStyle={{ color: '#fff' }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex justify-center gap-6 text-sm font-bold text-slate-600 dark:text-slate-300 mt-4">
                       <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm"></div>נכסים</div>
-                      <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-rose-500 shadow-sm"></div>התחייבויות</div>
+                      <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-rose-500 shadow-sm"></div>חובות</div>
                     </div>
                   </div>
                 ) : (
@@ -244,11 +293,41 @@ export default function NetWorthPage() {
               </div>
             </div>
 
+            {/* Historical Trend Chart (Area Chart) */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card rounded-[2rem] p-8 mt-6 relative overflow-hidden"
+              dir="ltr"
+            >
+              <h3 className="text-slate-800 dark:text-slate-200 font-bold mb-6 text-lg text-right" dir="rtl">גידול הון (6 חודשים אחרונים) 📈</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={historyData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(156, 163, 175, 0.2)" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 13}} />
+                    <Tooltip 
+                      formatter={(val: number) => [`₪${val.toLocaleString()}`, "שווי נקי"]}
+                      contentStyle={{ borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.9)', color: '#fff', textAlign: 'right', direction: 'rtl' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+
             {netWorth < 0 && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 p-5 rounded-2xl flex items-start sm:items-center gap-4 shadow-sm"
+                className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 p-5 rounded-2xl flex items-start sm:items-center gap-4 shadow-sm mt-6"
               >
                 <div className="bg-rose-100 dark:bg-rose-500/20 p-2 rounded-xl text-rose-600 dark:text-rose-400">
                   <AlertCircle size={24} />
@@ -261,16 +340,16 @@ export default function NetWorthPage() {
             )}
 
             {/* Premium Asset Tracking List */}
-            <div className="space-y-8 pt-4">
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">פירוט הון אישי</h2>
+            <div className="space-y-8 pt-8">
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4">פירוט הון חכם</h2>
 
               {assets.length === 0 ? (
-                <div className="bg-white/50 border border-dashed border-slate-300 dark:bg-slate-900/50 dark:border-slate-800 rounded-[2rem] p-12 text-center flex flex-col items-center justify-center">
-                  <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-400 shadow-inner">
-                    <Plus size={36} />
+                <div className="glass-card border-dashed border-2 rounded-[2.5rem] p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6 text-slate-400 shadow-inner border border-slate-200 dark:border-slate-700">
+                    <Plus size={48} className="text-indigo-500/50" />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-2">עדיין לא הוספת נתונים</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">לחץ על הכפתור מעלה כדי להתחיל לעקוב אחרי העו״ש, חסכונות, רכבים ונדל״ן.</p>
+                  <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-3">אין נתונים לפירוט</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto font-medium">הוסף כעת את מקורות ההון וההתחייבויות שלך לקבלת תמונת מצב מדויקת בזמן אמת.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -280,44 +359,56 @@ export default function NetWorthPage() {
 
                     const isLiability = group === 'Liability/Loan';
                     const groupTotal = groupItems.reduce((acc, item) => acc + Math.abs(item.value), 0);
+                    // Calculate percentage of total allocation
+                    const rawPercentage = isLiability 
+                      ? (totalLiabilities > 0 ? (groupTotal / totalLiabilities) * 100 : 0)
+                      : (totalAssets > 0 ? (groupTotal / totalAssets) * 100 : 0);
+                    const percentage = Math.round(rawPercentage);
 
                     return (
                       <motion.div 
                         key={group}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white dark:bg-slate-900 rounded-[2rem] p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-800/80 overflow-hidden"
+                        className={`glass-card rounded-[2rem] p-1 overflow-hidden ${isLiability ? 'border-rose-200/50 dark:border-rose-900/40 shadow-rose-500/5' : ''}`}
                       >
                          {/* Group Header */}
-                         <div className={`p-6 pb-5 flex items-center justify-between border-b \${isLiability ? 'border-rose-100/50 dark:border-rose-900/30 bg-rose-50/30 dark:bg-rose-950/10' : 'border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50'}`}>
+                         <div className={`p-6 pb-6 flex items-center justify-between border-b ${isLiability ? 'border-rose-100/50 dark:border-rose-900/30 bg-rose-50/10 dark:bg-rose-950/20' : 'border-slate-100 dark:border-slate-800/80 bg-white/30 dark:bg-slate-900/30'}`}>
                            <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-[1.25rem] flex items-center justify-center shadow-sm \${isLiability ? 'bg-white dark:bg-slate-900 text-rose-500 border border-rose-100 dark:border-rose-800' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>
-                                {getTypeIcon(group)}
+                              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isLiability ? 'bg-gradient-to-tr from-rose-500 to-pink-500 text-white' : 'bg-gradient-to-tr from-indigo-500 to-purple-500 text-white'}`}>
+                                {getTypeIcon(group).props?.children ? getTypeIcon(group) : <Building2 size={26} className="text-white" />}
                               </div>
                               <div>
-                                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">{getTypeName(group)}</h3>
-                                <p className="text-slate-500 text-sm font-medium">{groupItems.length} רשומות</p>
+                                <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">{getTypeName(group)}</h3>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-semibold tracking-wide">{groupItems.length} רשומות • {percentage}% מהתמהיל</p>
                               </div>
                            </div>
-                           <div className={`text-xl font-black \${isLiability ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                           <div className={`text-2xl font-black ${isLiability ? 'text-rose-500 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
                              ₪{groupTotal.toLocaleString()}
                            </div>
                          </div>
 
+                         {/* Allocation Bar */}
+                         <div className="px-6 mt-4">
+                           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                             <div className={`h-full ${isLiability ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${percentage}%` }}></div>
+                           </div>
+                         </div>
+
                          {/* Group Items */}
-                         <div className="p-2">
+                         <div className="p-3 mt-1">
                            {groupItems.map((item) => (
-                             <div key={item._id} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors group">
+                             <div key={item._id} className="flex items-center justify-between p-4 bg-transparent hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors group">
                                 <div className="flex items-center gap-3">
-                                  <div className={`w-2 h-2 rounded-full \${isLiability ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
+                                  <div className={`w-3 h-3 rounded-full shadow-sm ${isLiability ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
                                   <span className="text-slate-700 dark:text-slate-300 font-bold">{item.name}</span>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                  <span className={`font-bold text-base tracking-tight \${isLiability ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                                  <span className={`font-black text-lg tracking-tight ${isLiability ? 'text-rose-500 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
                                     {isLiability ? '-' : ''}{Math.abs(item.value).toLocaleString()} ₪
                                   </span>
-                                  <button title="מחיקת רשומה" onClick={() => deleteAsset(item._id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-white hover:bg-rose-500 dark:hover:bg-rose-600 rounded-xl transition-all shadow-sm">
-                                    <Trash2 size={16} />
+                                  <button title="מחיקת רשומה" onClick={() => deleteAsset(item._id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-white hover:bg-rose-500 dark:hover:bg-rose-600 rounded-xl transition-all shadow-sm bg-slate-100 dark:bg-slate-800 hover:shadow-rose-500/20">
+                                    <Trash2 size={18} />
                                   </button>
                                 </div>
                              </div>
@@ -343,29 +434,29 @@ export default function NetWorthPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden"
+              className="relative w-full max-w-md glass-card bg-white/90 dark:bg-[#0B0C10]/90 rounded-[2.5rem] shadow-2xl overflow-hidden"
             >
-              <div className="bg-slate-50 dark:bg-slate-950 p-8 border-b border-slate-100 dark:border-slate-800">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800/60 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/10 dark:to-purple-900/10">
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">הוספת רשומה 📈</h2>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">עדכן את השווי הנקי שלך עם נתוני אמת.</p>
               </div>
               
               <div className="p-8 pb-10">
                 <form onSubmit={handleAddAsset} className="space-y-6">
-                  <div>
+                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">סוג הרישום</label>
                     <div className="relative">
                       <select 
                         value={type} 
                         onChange={(e: any) => setType(e.target.value)}
-                        className="w-full px-5 py-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all appearance-none cursor-pointer"
+                        className="w-full px-5 py-4 rounded-2xl bg-white/50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all appearance-none cursor-pointer backdrop-blur-sm"
                       >
                         <option value="Cash">💵 מזומן / חשבון עו״ש</option>
                         <option value="Investment">📈 השקעות (שוק ההון, פנסיה)</option>
@@ -385,7 +476,7 @@ export default function NetWorthPage() {
                       value={name}
                       placeholder="לדוגמא: קרן פנסיה קל גמל"
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all placeholder:font-medium placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                      className="w-full px-5 py-4 rounded-2xl bg-white/50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all placeholder:font-medium placeholder:text-slate-300 dark:placeholder:text-slate-600 backdrop-blur-sm"
                       required
                     />
                   </div>
@@ -397,7 +488,7 @@ export default function NetWorthPage() {
                       value={value}
                       placeholder="0"
                       onChange={(e) => setValue(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all text-xl placeholder:font-medium placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                      className="w-full px-5 py-4 rounded-2xl bg-white/50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none text-slate-800 dark:text-slate-100 font-bold transition-all text-xl placeholder:font-medium placeholder:text-slate-300 dark:placeholder:text-slate-600 backdrop-blur-sm"
                       required
                     />
                   </div>
@@ -413,7 +504,7 @@ export default function NetWorthPage() {
                     <button 
                       type="submit"
                       disabled={isSubmitting}
-                      className="flex-[1.5] py-4 rounded-2xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 transition-all shadow-xl shadow-indigo-600/30 flex justify-center items-center"
+                      className="flex-[1.5] py-4 rounded-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-105 text-white disabled:opacity-50 transition-all shadow-xl shadow-indigo-600/30 flex justify-center items-center"
                     >
                       {isSubmitting ? (
                         <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

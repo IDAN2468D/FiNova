@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Plus, ShoppingCart, Fuel, Zap, ArrowUpRight, ArrowDownRight, Coffee, PiggyBank, CreditCard, ChevronLeft, Target, Briefcase, Gift, TrendingUp, MoreHorizontal, Bot, Loader2, Sparkles, Download } from "lucide-react";
+import { Plus, ShoppingCart, Fuel, Zap, ArrowUpRight, ArrowDownRight, Coffee, PiggyBank, CreditCard, ChevronLeft, Target, Briefcase, Gift, TrendingUp, MoreHorizontal, Bot, Loader2, Sparkles, Download, FolderOpen, Import, Mail, FileText } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/Navbar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import toast from "react-hot-toast";
 
 /** מיפוי קטגוריות לצבעים ואייקונים */
 const catIcons: Record<string, { icon: React.ReactNode; bgColor: string; color: string }> = {
@@ -62,10 +63,59 @@ export default function Home() {
     }
   }, []);
 
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false);
+  const handleSyncToSheets = async () => {
+    if (transactions.length === 0) {
+      toast.error("אין למערכת נתונים קיימים כדי לסנכרן.");
+      return;
+    }
+    setIsSyncingSheets(true);
+    try {
+      const res = await fetch("/api/export/sheets", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          <span>
+            גיבוי הצליח! <a href={data.spreadsheetUrl} target="_blank" rel="noreferrer" className="underline font-bold text-indigo-700">פתח כאן</a>
+          </span>, 
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(data.message || "שגיאה בגיבוי לגוגל.");
+      }
+    } catch (err) {
+      toast.error("שגיאת רשת מול השרת.");
+    } finally {
+      setIsSyncingSheets(false);
+    }
+  };
+
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
+
+  // מצבי ה-Import (ייבוא נתונים מגוגל אקסל)
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importSheetUrl, setImportSheetUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [isScanningGmail, setIsScanningGmail] = useState(false);
+  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
+
+  useEffect(() => {
+    // מחפשים האם יש למשתמש כבר תיקיית קבלות בדרייב
+    if (session?.user) {
+      fetch("/api/drive/folder")
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.folderUrl) {
+             setDriveFolderUrl(data.folderUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [session]);
 
   const handleGenerateInsight = async () => {
     if (transactions.length === 0) return;
@@ -129,39 +179,160 @@ export default function Home() {
     }));
   }, [transactions]);
 
+  const handleImportSheet = async () => {
+    if (!importSheetUrl) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch("/api/drive/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spreadsheetId: importSheetUrl }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`נשאבו בהצלחה ${data.count} שורות נתונים מהגיליון!`);
+        setShowImportDialog(false);
+        setImportSheetUrl("");
+        fetchData(); // טעינת נתונים מחדש אחרי ייבוא מוצלח
+      } else {
+        toast.error(data.message || "שגיאה בייבוא מהגיליון.");
+      }
+    } catch (err) {
+      toast.error("שגיאת רשת מול השרת בייבוא הגיליון.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleScanGmail = async () => {
+    setIsScanningGmail(true);
+    toast.loading("מפעיל בוט סורק מיילים...", { id: "gmail" });
+    try {
+      const res = await fetch("/api/gmail/scan");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.receipts.length > 0) {
+          toast.success(
+            <span>
+              מצאתי {data.receipts.length} קבלות פוטנציאליות במייל שלך! <br/>
+              <b>דוגמה מזהה:</b> {data.receipts[0].subject}
+            </span>, 
+            { id: "gmail", duration: 8000 }
+          );
+          // כאן ניתן בעתיד להזרים את המערך הזה ל-Modal מיוחד לאישור.
+        } else {
+           toast.error("לא מצאתי קבלות חדשות במייל (Wolts, Apple, חשבוניות וכו').", { id: "gmail" });
+        }
+      } else {
+        toast.error(data.message || "שגיאה בחיבור ל-Gmail API.", { id: "gmail" });
+      }
+    } catch (err) {
+      toast.error("שגיאת רשת מול השרת.", { id: "gmail" });
+    } finally {
+      setIsScanningGmail(false);
+    }
+  };
+
+  const handleGenerateDoc = async () => {
+    setIsGeneratingDoc(true);
+    toast.loading("מפיק דוח פיננסי אוטומטי (Docs)...", { id: "doc" });
+    try {
+      const res = await fetch("/api/docs/generate", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+         toast.success(
+            <span>דוח הופק! <a href={data.documentUrl} target="_blank" rel="noreferrer" className="underline font-bold text-emerald-800">פתח דוח עכשיו</a></span>, 
+            { id: "doc", duration: 8000 }
+         );
+      } else {
+         toast.error(data.message || "שגיאה בחיבור ל-Docs API.", { id: "doc" });
+      }
+    } catch (err) {
+      toast.error("שגיאת רשת מול השרת.", { id: "doc" });
+    } finally {
+      setIsGeneratingDoc(false);
+    }
+  };
+
   return (
     <>
       <Navbar />
       <div className="max-w-7xl mx-auto space-y-6 pb-12 relative mt-6 px-6">
         
         {/* 1. Header Section */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center mb-6 mt-2">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">שלום, {userName} 👋</h1>
-            <p className="text-slate-500 dark:text-slate-400">הנה סקירה של ההוצאות שלך החודש</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">שלום, {userName} 👋</h1>
+            <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-1">הנה סקירה של ההוצאות שלך החודש</p>
           </div>
-          <div className="flex items-center gap-3">
+        </div>
+
+        {/* 1.5. Mobile-Friendly Scrollable Action Bar */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide snap-x mb-2 w-full" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <style jsx>{`
+              div::-webkit-scrollbar { display: none; }
+            `}</style>
+            
+            <button
+              onClick={handleGenerateDoc}
+              disabled={isGeneratingDoc}
+              className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 border border-emerald-100 dark:border-emerald-800/30"
+              title="הפקת דוח מסכם"
+            >
+               {isGeneratingDoc ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+               <span className="text-sm whitespace-nowrap">דוח מנהלים (Docs)</span>
+            </button>
+            <button
+              onClick={handleScanGmail}
+              disabled={isScanningGmail}
+              className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 border border-rose-100 dark:border-rose-800/30"
+              title="סורק קבלות מג'ימייל"
+            >
+               {isScanningGmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+              <span className="text-sm whitespace-nowrap">צייד קבלות</span>
+            </button>
+            <button
+              onClick={() => setShowImportDialog(true)}
+              className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 font-bold rounded-xl transition-colors shadow-sm border border-indigo-100 dark:border-indigo-800/30"
+              title="ייבוא מ-Sheets ידני"
+            >
+              <Import size={18} />
+              <span className="text-sm whitespace-nowrap">ייבוא נתונים מצד ג׳</span>
+            </button>
+            {driveFolderUrl && (
+              <a
+                href={driveFolderUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold rounded-xl transition-colors shadow-sm border border-amber-100 dark:border-amber-800/30"
+                title="תיקיית הקבלות שלי"
+              >
+                <FolderOpen size={18} />
+                <span className="text-sm whitespace-nowrap">קבלות (Drive)</span>
+              </a>
+            )}
+            <button
+              onClick={handleSyncToSheets}
+              disabled={isSyncingSheets}
+              className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 border border-blue-100 dark:border-blue-800/30"
+              title="גיבוי ענן לגוגל"
+            >
+              {isSyncingSheets ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              <span className="text-sm whitespace-nowrap">גיבוי ענן (Sheets)</span>
+            </button>
             <button
               onClick={() => {
                 import("@/utils/exportToCSV").then((module) => {
                   module.exportTransactionsToCSV(transactions);
-                  import("react-hot-toast").then((t) => t.default.success("הדוח ירד בהצלחה!"));
+                  toast.success("הדוח ירד בהצלחה!");
                 });
               }}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold rounded-xl transition-colors shadow-sm"
+              className="flex shrink-0 snap-start items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold rounded-xl transition-colors shadow-sm border border-emerald-100 dark:border-emerald-800/30"
               title="יצוא לאקסל"
             >
               <Download size={18} />
-              <span className="text-sm">יצוא לאקסל</span>
+              <span className="text-sm whitespace-nowrap">יצוא לאקסל</span>
             </button>
-            <div className="w-12 h-12 rounded-[1.2rem] bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold shadow-lg transform rotate-3 hover:translate-y-1 transition-all overflow-hidden">
-              {userImage ? (
-                <img src={userImage} alt={userName} className="w-full h-full object-cover transform -rotate-3" />
-              ) : (
-                userInitial
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Main Stats Bento Grid */}
@@ -228,7 +399,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between"
+            className="glass-card rounded-[2rem] p-6 flex flex-col justify-between"
           >
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -276,7 +447,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-800 flex flex-col"
+            className="glass-card rounded-[2rem] p-6 flex flex-col"
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">התפלגות הוצאות</h3>
@@ -331,7 +502,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-800 flex flex-col"
+            className="glass-card rounded-[2rem] p-6 flex flex-col"
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">יעדי חיסכון</h3>
@@ -439,9 +610,9 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden mt-6"
+          className="glass-card rounded-[2rem] overflow-hidden mt-6"
         >
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/30 flex justify-between items-center">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">
               פעילויות אחרונות
             </h3>
@@ -526,6 +697,45 @@ export default function Home() {
           </motion.div>
         </Link>
       </div>
+
+      {/* Import Modal Dialog */}
+      {showImportDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+             className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-slate-200 dark:border-slate-800"
+          >
+             <h3 className="text-xl font-black mb-2 text-slate-800 dark:text-white">ייבוא מ-Google Sheets</h3>
+             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+               הדבק כאן לינק או ID של גיליון אקסל (צריך להיות בפורמט זהה למבנה הגיבוי שלנו) והמערכת תשואב את הנתונים ישירות פנימה.
+             </p>
+             <input 
+               type="text"
+               value={importSheetUrl}
+               onChange={(e) => setImportSheetUrl(e.target.value)}
+               placeholder="https://docs.google.com/spreadsheets/d/..."
+               className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 outline-none focus:border-indigo-500 py-3 px-4 rounded-xl text-left mb-6 font-medium text-slate-800 dark:text-white"
+               dir="ltr"
+             />
+             <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowImportDialog(false)}
+                  className="flex-1 py-3 text-slate-600 bg-slate-100 hover:bg-slate-200 dark:text-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-bold transition-all"
+                >
+                  ביטול
+                </button>
+                <button 
+                  onClick={handleImportSheet}
+                  disabled={isImporting || !importSheetUrl}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isImporting ? <Loader2 size={18} className="animate-spin" /> : "ייבא עכשיו"}
+                </button>
+             </div>
+          </motion.div>
+        </div>
+      )}
       </div>
     </>
   );

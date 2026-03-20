@@ -1,5 +1,6 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/User";
@@ -10,6 +11,19 @@ import User from "@/models/User";
  */
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          // הרשאות שירותי גוגל הרחבים כולל: דרייב, שיטס, יומן, ג'ימייל, משימות, דוקס ואנשי קשר
+          scope: "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/contacts.readonly"
+        }
+      }
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -56,7 +70,33 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        try {
+          await connectMongoDB();
+          let dbUser = await User.findOne({ email: user.email });
+          if (!dbUser) {
+            dbUser = await User.create({
+              name: user.name,
+              email: user.email,
+              image: user.image || "",
+            });
+          }
+          // Mapping MongoDB _id to the session user id
+          user.id = dbUser._id.toString();
+          return true;
+        } catch (error) {
+          console.error("Error saving Google user:", error);
+          return false;
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user, trigger, session, account }) {
+      if (account) {
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+      }
       if (user) {
         token.id = user.id;
         token.image = user.image;
@@ -76,6 +116,9 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.image = (token.image as string) || null;
+        // העברת האסימון של גוגל לשימוש ב-API routes
+        // @ts-ignore
+        session.accessToken = token.accessToken;
       }
       return session;
     }

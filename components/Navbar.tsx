@@ -132,7 +132,7 @@ export default function Navbar() {
                 <span>פעולה חדשה</span>
               </Link>
               <Link href="/settings">
-                <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-rose-400 to-orange-400 flex items-center justify-center text-white font-bold shadow-md shadow-rose-500/20 border-2 border-white dark:border-slate-800 cursor-pointer hover:scale-110 hover:-rotate-3 transition-transform overflow-hidden">
+                <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-rose-400 to-orange-400 flex items-center justify-center text-white font-bold shadow-md shadow-rose-500/20 border-2 border-white dark:border-slate-800 cursor-pointer hover:scale-110 transition-transform overflow-hidden">
                   {userImage ? (
                     <img src={userImage} alt={userName} className="w-full h-full object-cover" />
                   ) : (

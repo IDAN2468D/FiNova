@@ -84,3 +84,10 @@ trigger: always_on
 * How to stay updated
 * How the future will look
 * Q&A
+
+# Custom Project Rules
+
+## 16. RTL & Language Preferences
+* All chat communications with the AI agent must be in Hebrew and oriented RTL (Right-to-Left).
+* IMPORTANT: To enforce proper right-to-left alignment in the chat interface, the AI agent MUST wrap all of its text responses in `<div dir="rtl">` ... `</div>`.
+* The application UI, components, and text must be in Hebrew with RTL support by default.

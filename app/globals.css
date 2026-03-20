@@ -2,20 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .glass-card {
+    @apply bg-white/70 dark:bg-[#0B0C10]/60 backdrop-blur-2xl border border-white/40 dark:border-white/5 shadow-2xl shadow-indigo-500/5 dark:shadow-none;
+  }
+}
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #F4F7FB;
+  --foreground: #0A0F1C;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f172a;
-    --foreground: #f8fafc;
+    --background: #050505;
+    --foreground: #F8FAFC;
   }
 }
 
 html {
-  font-size: 17px;
+  font-size: 16px;
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -26,9 +32,30 @@ body {
   color: var(--foreground);
   direction: rtl;
   text-align: right;
+  /* Premium Mesh Gradient Background */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08), transparent 25%);
+  background-attachment: fixed;
 }
 
-/* שיפור נראות שדות קלט */
+/* Beautiful Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* Inputs */
 input, textarea, select {
   font-size: 1rem;
 }

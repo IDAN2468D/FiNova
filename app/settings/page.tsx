@@ -520,104 +520,126 @@ export default function SettingsPage() {
             {/* ===== טאב: פרטיות ואבטחה ===== */}
             {activeTab === "security" && (
               <div className="space-y-8">
-                {/* כרטיס שינוי סיסמה */}
-                <form onSubmit={handleChangePassword} className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-[2.5rem] shadow-sm border-2 border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
-                  <h2 className="text-2xl font-bold mb-3 flex items-center gap-3 text-slate-800 dark:text-white">
-                    <Lock className="text-indigo-500 p-1 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg" size={32} />
-                    שינוי סיסמה
-                  </h2>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">
-                    מומלץ לשנות סיסמה בתדירות קבועה. הסיסמה חייבת להכיל לפחות 6 תווים.
-                  </p>
+                {/* כרטיס שינוי סיסמה הפרימיום */}
+                <form onSubmit={handleChangePassword} className="glass-card relative overflow-hidden p-8 sm:p-10 rounded-[2.5rem] shadow-xl border border-slate-200/50 dark:border-slate-700/50 transition-all hover:shadow-2xl group">
+                  {/* אפקטי תאורה (Glows) */}
+                  <div className="absolute top-0 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50 group-hover:opacity-100 transition-opacity duration-700"></div>
+                  <div className="absolute bottom-0 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50 group-hover:opacity-100 transition-opacity duration-700"></div>
 
-                  {securityError && <div className="mb-6 p-4 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-2xl text-sm font-semibold border border-red-100 dark:border-red-900/50">{securityError}</div>}
-                  {securitySuccess && <div className="mb-6 p-4 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-2xl text-sm font-semibold border border-emerald-100 dark:border-emerald-900/50">{securitySuccess}</div>}
-
-                  <div className="space-y-5">
-                    <div className="space-y-3">
-                      <label htmlFor="currentPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">סיסמה נוכחית</label>
-                      <div className="relative">
-                        <input
-                          id="currentPassword"
-                          type={showCurrentPassword ? "text" : "password"}
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          placeholder="הכנס את הסיסמה הנוכחית שלך"
-                          className="w-full px-5 py-4 pe-14 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-violet-500 focus:ring-0 transition-all outline-none font-medium text-slate-900 dark:text-white"
-                          dir="ltr"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-500 transition-colors"
-                        >
-                          {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
+                  <div className="relative z-10">
+                    <h2 className="text-3xl font-black mb-3 flex items-center gap-3 text-slate-900 dark:text-white tracking-tight">
+                      <div className="p-2.5 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl shadow-lg shadow-indigo-500/30">
+                        <Lock className="text-white" size={28} />
                       </div>
-                    </div>
+                      ניהול ואבטחת סיסמה
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium mb-10 text-lg">
+                      החלף סיסמה בתדירות קבועה כדי לשמור על רמת אבטחה מקסימלית (6 תווים לפחות).
+                    </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <label htmlFor="newPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">סיסמה חדשה</label>
-                        <div className="relative">
-                          <input
-                            id="newPassword"
-                            type={showNewPassword ? "text" : "password"}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="לפחות 6 תווים"
-                            className="w-full px-5 py-4 pe-14 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-violet-500 focus:ring-0 transition-all outline-none font-medium text-slate-900 dark:text-white"
-                            dir="ltr"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-500 transition-colors"
-                          >
-                            {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                          </button>
-                        </div>
+                    {securityError && (
+                      <div className="mb-8 p-4 bg-rose-50/80 dark:bg-rose-900/20 backdrop-blur-md text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-bold border border-rose-200 dark:border-rose-800/50 flex items-center gap-2 shadow-sm">
+                        <AlertTriangle size={18} /> {securityError}
                       </div>
-                      <div className="space-y-3">
-                        <label htmlFor="confirmPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">אימות סיסמה חדשה</label>
-                        <input
-                          id="confirmPassword"
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="הכנס שוב את הסיסמה החדשה"
-                          className="w-full px-5 py-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-violet-500 focus:ring-0 transition-all outline-none font-medium text-slate-900 dark:text-white"
-                          dir="ltr"
-                        />
-                      </div>
-                    </div>
-
-                    {/* מד חוזק סיסמה */}
-                    {newPassword && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm font-bold">
-                          <span className="text-slate-600 dark:text-slate-400">חוזק סיסמה:</span>
-                          <span className={`${newPassword.length >= 10 ? 'text-emerald-600' : newPassword.length >= 6 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {newPassword.length >= 10 ? 'חזקה 💪' : newPassword.length >= 6 ? 'בינונית ⚡' : 'חלשה ⚠️'}
-                          </span>
-                        </div>
-                        <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${newPassword.length >= 10 ? 'bg-emerald-500 w-full' : newPassword.length >= 6 ? 'bg-amber-400 w-2/3' : 'bg-red-400 w-1/3'}`}
-                          />
-                        </div>
+                    )}
+                    {securitySuccess && (
+                      <div className="mb-8 p-4 bg-emerald-50/80 dark:bg-emerald-900/20 backdrop-blur-md text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-bold border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-2 shadow-sm">
+                        <CheckCircle2 size={18} /> {securitySuccess}
                       </div>
                     )}
 
-                    <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                      <button
-                        type="submit"
-                        disabled={securityLoading}
-                        className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black rounded-2xl transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
-                      >
-                        <Lock size={20} />
-                        {securityLoading ? 'מעדכן סיסמה...' : 'עדכן סיסמה'}
-                      </button>
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <label htmlFor="currentPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">סיסמה נוכחית אישית</label>
+                        <div className="relative group/input">
+                          <input
+                            id="currentPassword"
+                            type={showCurrentPassword ? "text" : "password"}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="הקלד/י את הסיסמה הישנה..."
+                            className="w-full px-5 py-4 pl-14 rounded-2xl border-2 border-slate-200/60 dark:border-slate-700/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all outline-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner group-hover/input:border-slate-300 dark:group-hover/input:border-slate-600"
+                            dir="rtl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            {showCurrentPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <label htmlFor="newPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">סיסמה חדשה וחזקה</label>
+                          <div className="relative group/input">
+                            <input
+                              id="newPassword"
+                              type={showNewPassword ? "text" : "password"}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="לפחות 6 תווים"
+                              className="w-full px-5 py-4 pl-14 rounded-2xl border-2 border-slate-200/60 dark:border-slate-700/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all outline-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner group-hover/input:border-slate-300 dark:group-hover/input:border-slate-600"
+                              dir="rtl"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              {showNewPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <label htmlFor="confirmPassword" className="text-sm font-bold text-slate-700 dark:text-slate-300">אימות חוזר לסיסמה</label>
+                          <div className="relative group/input">
+                            <input
+                              id="confirmPassword"
+                              type="password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="הקלד שוב לאימות"
+                              className="w-full px-5 py-4 rounded-2xl border-2 border-slate-200/60 dark:border-slate-700/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all outline-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-inner group-hover/input:border-slate-300 dark:group-hover/input:border-slate-600"
+                              dir="rtl"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* מד חוזק סיסמה אינטראקטיבי */}
+                      {newPassword && (
+                        <div className="space-y-2 mt-4 bg-white/30 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                          <div className="flex justify-between text-sm font-bold items-center">
+                            <span className="text-slate-600 dark:text-slate-400">הערכת מורכבות ההצפנה:</span>
+                            <span className={`px-3 py-1 rounded-xl text-xs font-black shadow-sm ${newPassword.length >= 10 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200' : newPassword.length >= 6 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200'}`}>
+                              {newPassword.length >= 10 ? 'מצוינת 💪' : newPassword.length >= 6 ? 'סבירה ⚡' : 'חלשה ⚠️'}
+                            </span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-200/50 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${newPassword.length >= 10 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 w-full' : newPassword.length >= 6 ? 'bg-gradient-to-r from-amber-400 to-amber-500 w-2/3' : 'bg-gradient-to-r from-rose-400 to-rose-500 w-1/3'}`}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-8 mt-4">
+                        <button
+                          type="submit"
+                          disabled={securityLoading}
+                          className="w-full sm:w-auto inline-flex justify-center items-center gap-3 px-10 py-4 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed text-lg"
+                        >
+                          {securityLoading ? (
+                            <div className="w-6 h-6 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
+                          ) : (
+                            <Lock size={22} className="opacity-90" />
+                          )}
+                          {securityLoading ? 'מפעיל פרוטוקול הצפנה...' : 'בצע שינוי סיסמה עכשיו'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </form>
