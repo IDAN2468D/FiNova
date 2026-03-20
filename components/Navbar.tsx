@@ -224,7 +224,7 @@ export default function Navbar() {
                 <div className="space-y-1">
                   {[
                     { name: "ראשי", href: "/", icon: <LayoutDashboard size={20} /> },
-                    { name: "שווי נקי (Net Worth)", href: "/net-worth", icon: <Building size={20} /> },
+                    { name: "שווי נקי", href: "/net-worth", icon: <Building size={20} /> },
                     { name: "רישום פעולות", href: "/transactions", icon: <Activity size={20} /> },
                     { name: "מעקב יעדים", href: "/goals", icon: <Target size={20} /> },
                     { name: "מנויים שלי", href: "/subscriptions", icon: <Repeat size={20} /> },

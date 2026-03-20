@@ -179,7 +179,7 @@ export default function NetWorthPage() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
-              שווי נקי <span className="text-slate-400 dark:text-slate-500 font-medium">Net Worth</span>
+              שווי נקי
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">תמונת המצב הכוללת של ההון המצטבר שלך.</p>
           </div>
